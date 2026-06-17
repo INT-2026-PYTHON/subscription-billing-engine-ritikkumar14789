@@ -1,5 +1,5 @@
 """Shared pytest fixtures + helpers."""
-from __future__ import annotations
+from f__future__ import annotations
 
 import os
 import tempfile
@@ -34,6 +34,7 @@ def db() -> Database:
     database = Database(path)
     database.init_schema()
     yield database
+    database.close()
     Path(path).unlink(missing_ok=True)
 
 

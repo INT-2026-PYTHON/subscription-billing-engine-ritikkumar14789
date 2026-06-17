@@ -31,11 +31,18 @@ class Database:
         conn.execute("PRAGMA foreign_keys = ON;")
         return conn
 
+    def close(self) -> None:
+        """No-op: Database holds no persistent connection (connections are per-operation).
+        Provided so fixtures can call db.close() before cleanup on Windows."""
+
     def init_schema(self) -> None:
         """Create all tables (idempotent — uses CREATE TABLE IF NOT EXISTS)."""
         sql = SCHEMA_PATH.read_text(encoding="utf-8")
-        with self.connect() as conn:
+        conn = self.connect()
+        try:
             conn.executescript(sql)
+        finally:
+            conn.close()
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
