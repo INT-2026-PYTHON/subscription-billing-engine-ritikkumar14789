@@ -10,7 +10,6 @@ The order is FIXED:
     4. tax        = tax_calc.apply(taxable)
     5. total      = taxable + tax.total
 """
-
 from __future__ import annotations
 
 from datetime import date
@@ -38,5 +37,48 @@ def build_invoice(
     invoice_count_so_far: int,
 ) -> Invoice:
     """Pure function. Returns an Invoice (id=None, status=DRAFT) ready to be persisted."""
-    # TODO Day 2
-    raise NotImplementedError("Day 2: implement build_invoice")
+    # 1. Base charge
+    base = strategy.calculate(usage_quantity)
+
+    # 2. Discount
+    discount_amount = Money.zero(base.currency)
+    if discount is not None:
+        ctx = DiscountContext(invoice_count_so_far=invoice_count_so_far)
+        discount_amount = discount.apply(base, ctx)
+
+    # 3. Taxable
+    taxable = base - discount_amount
+
+    # 4. Tax
+    tax_breakdown = tax_calc.apply(taxable, tax_context)
+    tax_total = tax_breakdown.total
+
+    # 5. Total
+    total = taxable + tax_total
+
+    # Build line items
+    line_items = [
+        InvoiceLineItem(None, None, f"{plan.name} subscription", base, LineItemKind.BASE),
+    ]
+    if not discount_amount.is_zero():
+        line_items.append(
+            InvoiceLineItem(None, None, "Discount", -discount_amount, LineItemKind.DISCOUNT)
+        )
+    for label, amount in tax_breakdown.components:
+        line_items.append(
+            InvoiceLineItem(None, None, label, amount, LineItemKind.TAX)
+        )
+
+    return Invoice(
+        id=None,
+        subscription_id=subscription.id,
+        period_start=period_start,
+        period_end=period_end,
+        subtotal=base,
+        discount_total=discount_amount,
+        tax_total=tax_total,
+        total=total,
+        status=InvoiceStatus.DRAFT,
+        line_items=line_items,
+    )
+
